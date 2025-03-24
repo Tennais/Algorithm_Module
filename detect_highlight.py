@@ -64,6 +64,7 @@ def main():
                     pt2 = (int(poses[connection[1]][0]), int(poses[connection[1]][1]))
                     cv2.line(annotated_frame, pt1, pt2, color, 2)
 
+            # racket_coords: [x0, y0, x1, y1]
             racket_score, racket_coords = video_info[base_name]["racket"]
             
             if racket_score > 0.5: # Racket detection
@@ -90,35 +91,45 @@ def main():
             hl_seq_idx = -2
             if len(sequential_keypoints) >= sequence_len:
                 right_arm_visible = True
+                # 时序关键点右肩、右肘、右手均可见
                 for i in range(hl_seq_idx, -sequence_len-1, -1):
                     right_arm_visible = right_arm_visible and float(sequential_keypoints[i][6][2]) > 0.5 and float(sequential_keypoints[i][8][2]) > 0.5 and float(sequential_keypoints[i][10][2]) > 0.5
                 left_arm_visible = True
+                # 时序关键点左肩、左肘、左手均可见
                 for i in range(-1, -sequence_len-1, -1):
                     left_arm_visible = left_arm_visible and float(sequential_keypoints[i][5][2]) > 0.5 and float(sequential_keypoints[i][7][2]) > 0.5 and float(sequential_keypoints[i][9][2]) > 0.5
 
+                # dis1_x 大臂水平距离
                 dis1_x = int(sequential_keypoints[hl_seq_idx][8][0] - sequential_keypoints[hl_seq_idx][6][0])
+                # dis1_y 大臂竖直距离
                 dis1_y = int(abs(sequential_keypoints[hl_seq_idx][6][1] - sequential_keypoints[hl_seq_idx][8][1]))
+                # dis2_x 小臂竖直距离
                 dis2_x = int(sequential_keypoints[hl_seq_idx][10][0] - sequential_keypoints[hl_seq_idx][8][0])
+                # dis2_y 小臂竖直距离
                 dis2_y = int(abs(sequential_keypoints[hl_seq_idx][8][1] - sequential_keypoints[hl_seq_idx][10][1]))
+                # 右肘、右手的水平方向大于15像素，竖直方向小于30像素，竖直/水平比例小于0.3
                 right_arm_location = dis2_x >= 15 and dis2_y <= 30 and dis2_y / dis2_x <= 0.3
 
+                # 右脚可见，右肩位置大于右脚水平位置
                 right_arm_right = float(sequential_keypoints[hl_seq_idx][16][2]) > 0.5 and float(sequential_keypoints[hl_seq_idx][10][0]) > float(sequential_keypoints[hl_seq_idx][16][0])
                 left_arm_left = True
+                # 如果左肩、左肘、左手可见，水平方向需小于右肩
                 if float(sequential_keypoints[hl_seq_idx][5][2]) > 0.5 and  float(sequential_keypoints[hl_seq_idx][6][0]) - float(sequential_keypoints[hl_seq_idx][5][0]) <= 15:
                     left_arm_left = False
                 if float(sequential_keypoints[hl_seq_idx][7][2]) > 0.5 and float(sequential_keypoints[hl_seq_idx][7][0]) > float(sequential_keypoints[hl_seq_idx][6][0]):
                     left_arm_left = False
                 if float(sequential_keypoints[hl_seq_idx][9][2]) > 0.5 and float(sequential_keypoints[hl_seq_idx][9][0]) > float(sequential_keypoints[hl_seq_idx][6][0]):
                     left_arm_left = False
-
+                # 时序关键点高亮时刻的右手水平方向要大于前后帧
                 sequence_longest_arm = sequential_keypoints[hl_seq_idx+1][10][0] < sequential_keypoints[hl_seq_idx][10][0] and sequential_keypoints[hl_seq_idx][10][0] > sequential_keypoints[hl_seq_idx-1][10][0]
-                
+                # 竖直方向，右腿在后，左腿在前
                 foot_right_y_greater_left = sequential_keypoints[hl_seq_idx][15][0] > 0.5 and sequential_keypoints[hl_seq_idx][16][0] > 0.5 and sequential_keypoints[hl_seq_idx][16][1] >= sequential_keypoints[hl_seq_idx][15][1]
                 
                 racket_w_greater_h = False
                 racket_h_greater_w = False
                 racket_center = [0, 0]
                 highlight_racket_score, highlight_racket_coords = sequential_rackets[hl_seq_idx]
+                # 球拍的检测宽大于高，且球拍中心在高光帧右手的右侧
                 if highlight_racket_score > 0.5 and highlight_racket_coords[3] > frame_height / 2:
                     racket_center =[int((highlight_racket_coords[0] + highlight_racket_coords[2]) / 2), int((highlight_racket_coords[1] + highlight_racket_coords[3]) / 2)]
                     # 相机近端
@@ -131,6 +142,7 @@ def main():
 
                 forehand_flat = right_arm_visible and right_arm_location and right_arm_right and left_arm_left and sequence_longest_arm and racket_location_forehand_flat and foot_right_y_greater_left
                 
+                # 左肘和左手的水平位置大于右肩和右肘
                 body_rotation = False
                 if sequential_keypoints[hl_seq_idx][7][2] > 0.5:
                     if sequential_keypoints[hl_seq_idx][6][0] < sequential_keypoints[hl_seq_idx][7][0] and sequential_keypoints[hl_seq_idx][8][0] < sequential_keypoints[hl_seq_idx][7][0]:
@@ -138,23 +150,31 @@ def main():
                 if sequential_keypoints[hl_seq_idx][9][2] > 0.5:
                     if sequential_keypoints[hl_seq_idx][6][0] < sequential_keypoints[hl_seq_idx][9][0] and sequential_keypoints[hl_seq_idx][8][0] < sequential_keypoints[hl_seq_idx][9][0]:
                         body_rotation = True
-                
+                # 右手在右肩和右肘的右侧
                 right_hand_right = sequential_keypoints[hl_seq_idx][10][0] > sequential_keypoints[hl_seq_idx][6][0] and sequential_keypoints[hl_seq_idx][10][0] > sequential_keypoints[hl_seq_idx][8][0]
                 right_relbow_greater_hand_y = sequential_keypoints[hl_seq_idx][8][1] > sequential_keypoints[hl_seq_idx][10][1]
+
+                # 右脚在左脚的右侧
                 right_foot_greater_left = sequential_keypoints[hl_seq_idx][16][2] > 0.5 and sequential_keypoints[hl_seq_idx][15][2] > 0.5 and sequential_keypoints[hl_seq_idx][16][0] > sequential_keypoints[hl_seq_idx][15][0] + 10
 
+                # 球拍的检测高大于宽，且球拍中心点在右手的右上方
                 racket_location_raising = False
                 if racket_h_greater_w and racket_center[0] > sequential_keypoints[hl_seq_idx][10][0] and racket_center[1] < sequential_keypoints[hl_seq_idx][10][1]:
                     racket_location_raising = True
                 
+                # 右手和右肩的下方，且竖直方向小于50像素，左手和左肩的下方，且竖直方向小于50像素
                 left_arm_distance = sequential_keypoints[hl_seq_idx][5][1] - sequential_keypoints[hl_seq_idx][9][1] < 50
                 right_arm_distance = sequential_keypoints[hl_seq_idx][6][1] - sequential_keypoints[hl_seq_idx][10][1] < 50
 
                 raising_racket = right_arm_visible and body_rotation and right_hand_right and right_foot_greater_left and racket_location_raising and left_arm_distance and right_arm_distance and right_relbow_greater_hand_y and foot_right_y_greater_left
 
+                # 右肩在左肩右侧，右肩左肩竖直方向小于30像素
                 left_right_shoulder = sequential_keypoints[hl_seq_idx][6][2] > 0.5 and sequential_keypoints[hl_seq_idx][6][0] - sequential_keypoints[hl_seq_idx][5][0] >= 20 and abs(sequential_keypoints[hl_seq_idx][6][1] - sequential_keypoints[hl_seq_idx][5][1]) < 30
+                # 右手在左肩左侧
                 right_arm_in_left = sequential_keypoints[hl_seq_idx][10][2] > 0.5 and  sequential_keypoints[hl_seq_idx][10][0] <  sequential_keypoints[hl_seq_idx][5][0]
+                # 右脚在左脚右侧，且左右脚水平方向在15～150像素之间，竖直方向小于15像素
                 casually_foot_location = sequential_keypoints[hl_seq_idx][16][2] > 0.5 and sequential_keypoints[hl_seq_idx][15][2] > 0.5 and 150 > sequential_keypoints[hl_seq_idx][16][0] - sequential_keypoints[hl_seq_idx][15][0] >= 15 and abs(sequential_keypoints[hl_seq_idx][16][1] - sequential_keypoints[hl_seq_idx][15][1]) <= 15
+                # 左手在左肘的上方
                 left_relbow_greater_hand_y = sequential_keypoints[hl_seq_idx][7][1] - sequential_keypoints[hl_seq_idx][9][1] >= -10
                 
                 casually_swing = left_arm_visible and casually_foot_location and left_right_shoulder and right_arm_in_left and left_relbow_greater_hand_y
